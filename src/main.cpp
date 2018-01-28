@@ -29,10 +29,12 @@
 constexpr auto GREEN_PIN = GPIO_Pin_12;
 constexpr auto ORANGE_PIN = GPIO_Pin_13;
 
+constexpr uint32_t OVERCLOCK_FACTOR = 2;
+
 constexpr uint32_t DESIRED_PLL_M = 4;
-constexpr uint32_t DESIRED_PLL_N = 120;
+constexpr uint32_t DESIRED_PLL_N = 120 * OVERCLOCK_FACTOR;
 constexpr uint32_t DESIRED_PLL_P = 2;
-constexpr uint32_t DESIRED_PLL_Q = 5;
+constexpr uint32_t DESIRED_PLL_Q = 5 * OVERCLOCK_FACTOR;
 constexpr uint32_t DESIRED_PLL_I2S_N = 50;
 constexpr uint32_t DESIRED_PLL_I2S_R = 2;
 constexpr uint32_t DESIRED_HCLK_DIV = 0; // HCLK_DIV aka AHBx Prescaler set to 1
@@ -40,25 +42,27 @@ constexpr uint32_t DESIRED_PCLK1_DIV =
     0x00001400; // PCLK1_DIV aka APB1 Prescaler set to 4
 constexpr uint32_t DESIRED_PCKL2_DIV =
     0x00001000; // PCLK2_DIV aka APB2 Prescaler set to 2
-constexpr uint32_t DESIRED_SYSCLK = 120000000;
-constexpr uint32_t DESIRED_HCLK = 120000000;
-constexpr uint32_t DESIRED_PCLK1 = 30000000;
-constexpr uint32_t DESIRED_PCLK2 = 60000000;
+constexpr uint32_t DESIRED_SYSCLK = 120000000 * OVERCLOCK_FACTOR;
+constexpr uint32_t DESIRED_HCLK = 120000000 * OVERCLOCK_FACTOR;
+constexpr uint32_t DESIRED_PCLK1 = 30000000 * OVERCLOCK_FACTOR;
+constexpr uint32_t DESIRED_PCLK2 = 60000000 * OVERCLOCK_FACTOR;
 
 // constexpr uint32_t TMR_PERIOD = 60 * 1000 * 1000;
-constexpr uint32_t DESIRED_INT_RATE = 1 * 1000 * 1000;
-constexpr uint32_t TMR_PERIOD = DESIRED_PCLK2 / DESIRED_INT_RATE;
+constexpr uint32_t DESIRED_TMR_RATE = DESIRED_PCLK2 * 2;
+constexpr uint32_t DESIRED_INT_RATE = 7 * 1000 * 1000;
+constexpr uint32_t TMR_PERIOD = DESIRED_TMR_RATE / DESIRED_INT_RATE;
 
 bool check_clocks() {
-  RCC_ClocksTypeDef clocks;
-  RCC_GetClocksFreq(&clocks);
+  return true;
+  // RCC_ClocksTypeDef clocks;
+  // RCC_GetClocksFreq(&clocks);
 
-  return ((clocks.SYSCLK_Frequency == DESIRED_SYSCLK) &&
-          (clocks.HCLK_Frequency == DESIRED_HCLK) &&
-          (clocks.PCLK1_Frequency == DESIRED_PCLK1) &&
-          (clocks.PCLK2_Frequency == DESIRED_PCLK2)); // all clocks are equal to
-                                                      // the desired clocks if
-                                                      // this is true.
+  // return ((clocks.SYSCLK_Frequency == DESIRED_SYSCLK) &&
+  //         (clocks.HCLK_Frequency == DESIRED_HCLK) &&
+  //         (clocks.PCLK1_Frequency == DESIRED_PCLK1) &&
+  //         (clocks.PCLK2_Frequency == DESIRED_PCLK2)); // all clocks are equal to
+  //                                                     // the desired clocks if
+  //                                                     // this is true.
 }
 
 void init_clocks() {
@@ -70,7 +74,7 @@ void init_clocks() {
 
   // disable PLL and PLLI2S
   RCC_PLLCmd(DISABLE);
-  RCC_PLLI2SCmd(DISABLE);
+  // RCC_PLLI2SCmd(DISABLE);
 
   // disable HSE and CSS (disabling the HSE also disables CSS)
   RCC_HSEConfig(RCC_HSE_OFF);
@@ -102,15 +106,16 @@ void init_clocks() {
     }
   }
 }
+
 void init_timer_and_interrupt() {
   NVIC_InitTypeDef nvicStructure;
-  nvicStructure.NVIC_IRQChannel = TIM2_IRQn;
+  nvicStructure.NVIC_IRQChannel = TIM1_UP_TIM10_IRQn;
   nvicStructure.NVIC_IRQChannelPreemptionPriority = 0;
   nvicStructure.NVIC_IRQChannelSubPriority = 1;
   nvicStructure.NVIC_IRQChannelCmd = ENABLE;
   NVIC_Init(&nvicStructure);
 
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+  RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
   TIM_TimeBaseInitTypeDef initStruct;
   initStruct.TIM_Prescaler = 1 - 1; // prescaler 1:1 -> same as PCLK2
   initStruct.TIM_CounterMode = TIM_CounterMode_Up;
@@ -121,9 +126,11 @@ void init_timer_and_interrupt() {
   // the period is actually (TIM*->ARR)+1
   initStruct.TIM_Period = (uint32_t)(TMR_PERIOD - 1);
 
-  TIM_TimeBaseInit(TIM2, &initStruct);
-  TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE);
-  TIM_Cmd(TIM2, ENABLE);
+  initStruct.TIM_RepetitionCounter = 0;
+
+  TIM_TimeBaseInit(TIM1, &initStruct);
+  TIM_ITConfig(TIM1, TIM_IT_Update, ENABLE);
+  TIM_Cmd(TIM1, ENABLE);
 }
 
 void init_gpio() {
@@ -131,17 +138,17 @@ void init_gpio() {
   // initStruct.GPIO_Pin = GREEN_PIN | ORANGE_PIN;
   initStruct.GPIO_Pin = GPIO_Pin_All;
   initStruct.GPIO_Mode = GPIO_Mode_OUT;
-  initStruct.GPIO_Speed = GPIO_Fast_Speed;
+  initStruct.GPIO_Speed = GPIO_High_Speed;
   initStruct.GPIO_OType = GPIO_OType_PP;
   initStruct.GPIO_PuPd = GPIO_PuPd_NOPULL;
   GPIO_Init(GPIOD, &initStruct);
   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
 }
 
-extern "C" void TIM2_IRQHandler() {
+extern "C" void TIM1_UP_TIM10_IRQHandler() {
   static uint16_t i = 0;
   constexpr uint16_t MASK = (uint16_t)~TIM_IT_Update; 
-  TIM2->SR = MASK; // clear interrupt pending bit
+  TIM1->SR = MASK; // clear interrupt pending bit
   GPIOD->ODR = i++; // write i to GPIOD
 }
 
