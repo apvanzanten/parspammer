@@ -25,44 +25,39 @@
 #include <stm32f4xx_gpio.h>
 #include <stm32f4xx_rcc.h>
 #include <stm32f4xx_tim.h>
+#include <stm32f4xx_dma.h>
 
 constexpr auto GREEN_PIN = GPIO_Pin_12;
 constexpr auto ORANGE_PIN = GPIO_Pin_13;
 
-constexpr uint32_t OVERCLOCK_FACTOR = 2;
 
-constexpr uint32_t DESIRED_PLL_M = 4;
-constexpr uint32_t DESIRED_PLL_N = 120 * OVERCLOCK_FACTOR;
-constexpr uint32_t DESIRED_PLL_P = 2;
-constexpr uint32_t DESIRED_PLL_Q = 5 * OVERCLOCK_FACTOR;
-constexpr uint32_t DESIRED_PLL_I2S_N = 50;
-constexpr uint32_t DESIRED_PLL_I2S_R = 2;
-constexpr uint32_t DESIRED_HCLK_DIV = 0; // HCLK_DIV aka AHBx Prescaler set to 1
-constexpr uint32_t DESIRED_PCLK1_DIV =
-    0x00001400; // PCLK1_DIV aka APB1 Prescaler set to 4
-constexpr uint32_t DESIRED_PCKL2_DIV =
-    0x00001000; // PCLK2_DIV aka APB2 Prescaler set to 2
-constexpr uint32_t DESIRED_SYSCLK = 120000000 * OVERCLOCK_FACTOR;
-constexpr uint32_t DESIRED_HCLK = 120000000 * OVERCLOCK_FACTOR;
-constexpr uint32_t DESIRED_PCLK1 = 30000000 * OVERCLOCK_FACTOR;
-constexpr uint32_t DESIRED_PCLK2 = 60000000 * OVERCLOCK_FACTOR;
+constexpr uint32_t DESIRED_PLL_M = 4; // 2-53
+constexpr uint32_t DESIRED_PLL_N = 360; // 50-432
+constexpr uint32_t DESIRED_PLL_P = 4; // 2,4,6,8
+constexpr uint32_t DESIRED_PLL_Q = 15; // 2-15
+constexpr uint32_t DESIRED_HCLK_DIV = RCC_SYSCLK_Div1; 
+constexpr uint32_t DESIRED_APB1_PRESCALER = RCC_HCLK_Div8;
+constexpr uint32_t DESIRED_APB2_PRESCALER = RCC_HCLK_Div2;
 
-// constexpr uint32_t TMR_PERIOD = 60 * 1000 * 1000;
+constexpr uint32_t DESIRED_SYSCLK = 180000000;
+constexpr uint32_t DESIRED_HCLK = 180000000;
+constexpr uint32_t DESIRED_PCLK1 = 22500000;
+constexpr uint32_t DESIRED_PCLK2 = 90000000;
+
 constexpr uint32_t DESIRED_TMR_RATE = DESIRED_PCLK2 * 2;
-constexpr uint32_t DESIRED_INT_RATE = 7 * 1000 * 1000;
-constexpr uint32_t TMR_PERIOD = DESIRED_TMR_RATE / DESIRED_INT_RATE;
+constexpr uint32_t DESIRED_SAMPLE_RATE = 20 * 1000 * 1000;
+constexpr uint32_t TMR_PERIOD = DESIRED_TMR_RATE / DESIRED_SAMPLE_RATE;
 
 bool check_clocks() {
-  return true;
-  // RCC_ClocksTypeDef clocks;
-  // RCC_GetClocksFreq(&clocks);
+  RCC_ClocksTypeDef clocks;
+  RCC_GetClocksFreq(&clocks);
 
-  // return ((clocks.SYSCLK_Frequency == DESIRED_SYSCLK) &&
-  //         (clocks.HCLK_Frequency == DESIRED_HCLK) &&
-  //         (clocks.PCLK1_Frequency == DESIRED_PCLK1) &&
-  //         (clocks.PCLK2_Frequency == DESIRED_PCLK2)); // all clocks are equal to
-  //                                                     // the desired clocks if
-  //                                                     // this is true.
+  return ((clocks.SYSCLK_Frequency == DESIRED_SYSCLK) &&
+          (clocks.HCLK_Frequency == DESIRED_HCLK) &&
+          (clocks.PCLK1_Frequency == DESIRED_PCLK1) &&
+          (clocks.PCLK2_Frequency == DESIRED_PCLK2)); // all clocks are equal to
+                                                      // the desired clocks if
+                                                      // this is true.
 }
 
 void init_clocks() {
@@ -85,8 +80,8 @@ void init_clocks() {
 
   // set AHB, APB1, APB2 prescalers
   RCC_HCLKConfig(DESIRED_HCLK_DIV);
-  RCC_PCLK1Config(DESIRED_PCLK1_DIV);
-  RCC_PCLK2Config(DESIRED_PCKL2_DIV);
+  RCC_PCLK1Config(DESIRED_APB1_PRESCALER);
+  RCC_PCLK2Config(DESIRED_APB2_PRESCALER);
 
   // enable HSE
   RCC_HSEConfig(RCC_HSE_ON);
@@ -107,14 +102,7 @@ void init_clocks() {
   }
 }
 
-void init_timer_and_interrupt() {
-  NVIC_InitTypeDef nvicStructure;
-  nvicStructure.NVIC_IRQChannel = TIM1_UP_TIM10_IRQn;
-  nvicStructure.NVIC_IRQChannelPreemptionPriority = 0;
-  nvicStructure.NVIC_IRQChannelSubPriority = 1;
-  nvicStructure.NVIC_IRQChannelCmd = ENABLE;
-  NVIC_Init(&nvicStructure);
-
+void init_timer_and_dma(uint16_t * buffer, uint16_t buffer_size) {
   RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
   TIM_TimeBaseInitTypeDef initStruct;
   initStruct.TIM_Prescaler = 1 - 1; // prescaler 1:1 -> same as PCLK2
@@ -129,8 +117,37 @@ void init_timer_and_interrupt() {
   initStruct.TIM_RepetitionCounter = 0;
 
   TIM_TimeBaseInit(TIM1, &initStruct);
-  TIM_ITConfig(TIM1, TIM_IT_Update, ENABLE);
   TIM_Cmd(TIM1, ENABLE);
+
+  // DMA init
+  constexpr auto RCC_DMA_PERIPH_CLK = RCC_AHB1Periph_DMA2;
+  constexpr auto DMA_STREAM = DMA2_Stream5;
+  constexpr auto DMA_CHANNEL = DMA_Channel_6;
+
+  DMA_DeInit(DMA_STREAM);
+  RCC_AHB1PeriphClockCmd(RCC_DMA_PERIPH_CLK, ENABLE);
+
+  DMA_InitTypeDef dmaInitStruct;
+  dmaInitStruct.DMA_Channel = DMA_CHANNEL;
+  dmaInitStruct.DMA_PeripheralBaseAddr = (uint32_t)(&GPIOD->ODR);
+  dmaInitStruct.DMA_Memory0BaseAddr = (uint32_t)buffer;
+  dmaInitStruct.DMA_DIR = DMA_DIR_MemoryToPeripheral;
+  dmaInitStruct.DMA_BufferSize = buffer_size;
+  dmaInitStruct.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+  dmaInitStruct.DMA_MemoryInc = DMA_MemoryInc_Enable;
+  dmaInitStruct.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
+  dmaInitStruct.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+  dmaInitStruct.DMA_Mode = DMA_Mode_Circular;
+  dmaInitStruct.DMA_Priority = DMA_Priority_High;
+  dmaInitStruct.DMA_FIFOMode = DMA_FIFOMode_Disable;
+  dmaInitStruct.DMA_FIFOThreshold = DMA_FIFOThreshold_HalfFull;
+  dmaInitStruct.DMA_MemoryBurst = DMA_MemoryBurst_Single;
+  dmaInitStruct.DMA_PeripheralBurst = DMA_MemoryBurst_Single;
+  DMA_Init(DMA_STREAM, &dmaInitStruct);
+
+  DMA_Cmd(DMA_STREAM, ENABLE);
+
+  TIM_DMACmd(TIM1, TIM_DMA_Update, ENABLE);
 }
 
 void init_gpio() {
@@ -145,17 +162,10 @@ void init_gpio() {
   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
 }
 
-extern "C" void TIM1_UP_TIM10_IRQHandler() {
-  static uint16_t i = 0;
-  constexpr uint16_t MASK = (uint16_t)~TIM_IT_Update; 
-  TIM1->SR = MASK; // clear interrupt pending bit
-  GPIOD->ODR = i++; // write i to GPIOD
-}
-
-void blink_forever() {
-  while (true) {
+void greet(){
+  for (int i = 0; i < 10; i++) {
     GPIO_ToggleBits(GPIOD, ORANGE_PIN);
-    for (int i = 0; i < 1000000; i++) {
+    for (int i = 0; i < 5000000; i++) {
       asm("nop");
     }
   }
@@ -163,14 +173,22 @@ void blink_forever() {
 
 int main(void) {
 
+  constexpr auto BUFFER_SIZE = 4096;
+  uint16_t buffer[BUFFER_SIZE];
+  for(int i = 0; i < BUFFER_SIZE; i++){
+    buffer[i] = i;
+  }
+
   init_clocks();
-  init_timer_and_interrupt();
   init_gpio();
+
+  greet();
+
+  init_timer_and_dma(buffer, BUFFER_SIZE);
 
   while (1) {
     asm("nop");
   }
-  // blink_forever();
 
   return 0;
 }
