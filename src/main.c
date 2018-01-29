@@ -6,7 +6,17 @@
 
 #define GREEN_PIN (GPIO_Pin_12)
 #define ORANGE_PIN (GPIO_Pin_13)
-#define BUFFER_SIZE (4096)
+#define NUM_SAMPLES_DEFAULT (4096)
+#define NUM_SAMPLES_MAX (8192)
+
+enum Modes {
+  MODE_CONT,
+  MODE_ONESHOT,
+  MODE_ONESHOT_REPEAT_1HZ,
+  MODE_ONESHOT_REPEAT_10HZ,
+  MODE_ONESHOT_REPEAT_100HZ,
+  MODE_DEFAULT = 0x64,
+};
 
 void init_gpio() {
   GPIO_InitTypeDef initStruct;
@@ -51,12 +61,64 @@ int main(void) {
 
   greet();
 
-  uint16_t buffer[BUFFER_SIZE];
-  for (int i = 0; i < BUFFER_SIZE; i++) {
-    buffer[i] = i;
+  serial_puts("Welcome to parspammer, please enter the following, as raw data "
+              "(little endian) with no delimiters:\n");
+  serial_puts("1. mode (one byte), pick from:\n");
+  serial_puts("\t0x00: continuous send\n");
+  serial_puts("\t0x01: one-shot send\n");
+  serial_puts("\t0x02: repeated one-shot send @ 1Hz");
+  serial_puts("\t0x03: repeated one-shot send @ 10Hz");
+  serial_puts("\t0x04: repeated one-shot send @ 100Hz");
+  serial_puts(
+      "\t0x64 ('d'): defaults (ignores given sample number and data)\n");
+  serial_puts("2. number of samples (unsigned integer, 2 bytes, max 8192)\n");
+  serial_puts("3. the actual samples of data (2 bytes each)\n");
+
+  char mode = serial_get_blocking();
+
+  uint16_t num_samples = 0;
+
+  if (mode == MODE_DEFAULT) {
+    num_samples = NUM_SAMPLES_DEFAULT;
+  } else {
+    char num_samples_upper = serial_get_blocking();
+    char num_samples_lower = serial_get_blocking();
+    num_samples = (num_samples_upper << 8) | num_samples_lower;
   }
 
-  start_spam(buffer, BUFFER_SIZE);
+  if (num_samples > NUM_SAMPLES_MAX) {
+    serial_puts("ERROR: sample number too high. You'll have to reboot me now.");
+    while (1)
+      ;
+  }
+
+  uint16_t buffer[num_samples];
+
+  switch (mode) {
+  case MODE_CONT:
+    for (uint16_t i = 0; i < num_samples; i++) {
+      buffer[i] = (serial_get_blocking() << 8) | serial_get_blocking();
+    }
+    break;
+  case MODE_ONESHOT:
+  case MODE_ONESHOT_REPEAT_1HZ:
+  case MODE_ONESHOT_REPEAT_10HZ:
+  case MODE_ONESHOT_REPEAT_100HZ:
+    serial_puts("Mode not yet implemented, moving to default mode:");
+  case MODE_DEFAULT:
+    for (uint16_t i = 0; i < num_samples; i++) {
+      buffer[i] = i;
+    }
+    break;
+  default:
+    serial_puts("ERROR: unknown mode. You'll have to reboot me now.");
+    while (1)
+      ;
+  }
+
+  serial_puts("Thanks! Initiating spam!");
+
+  start_spam(buffer, num_samples);
 
   return 0;
 }

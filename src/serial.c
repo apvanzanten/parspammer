@@ -73,3 +73,9 @@ void serial_puts(const char *str) {
 char serial_get() {
   return (char)(USART_ReceiveData(SERIAL_USART_PERIPH) & 0xff);
 }
+
+char serial_get_blocking() {
+  while(!serial_check_for_data())
+    ;
+  return serial_get();
+}

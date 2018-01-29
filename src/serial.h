@@ -29,5 +29,6 @@ int serial_check_for_data();
 void serial_put(char c);
 void serial_puts(const char *str);
 char serial_get();
+char serial_get_blocking();
 
 #endif // SERIAL_H
