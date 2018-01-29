@@ -24,7 +24,7 @@
 #define DMA_STREAM (DMA2_Stream5)
 #define DMA_CHANNEL (DMA_Channel_6)
 
-void init_spam(uint16_t * buffer, uint16_t buffer_size);
+void init_spam(uint16_t *buffer, uint16_t buffer_size);
 void init_main_timer();
 void wait_us(uint32_t time_us);
 void wait(float time_sec);

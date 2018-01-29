@@ -64,9 +64,7 @@ void init_main_timer() {
   TIM_Cmd(TIM2, ENABLE);
 }
 
-uint32_t get_main_tmr_ticks(){
-  return TIM2->CNT;
-}
+uint32_t get_main_tmr_ticks() { return TIM2->CNT; }
 
 void wait_ticks(uint32_t time_ticks) {
   // Overflow protection assumes that time_ticks < 2 * TMR_PERIOD at all times.
@@ -87,7 +85,4 @@ void wait_ticks(uint32_t time_ticks) {
     ;
 }
 
-void wait(float time_sec){
-  wait_ticks(time_sec * MAIN_TMR_RATE);
-}
-
+void wait(float time_sec) { wait_ticks(time_sec * MAIN_TMR_RATE); }
