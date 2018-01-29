@@ -1,7 +1,8 @@
-#include <stm32f4xx_gpio.h>
-#include <stdint.h>
 #include "clocks.h"
+#include "serial.h"
 #include "time_and_dma.h"
+#include <stdint.h>
+#include <stm32f4xx_gpio.h>
 
 #define GREEN_PIN (GPIO_Pin_12)
 #define ORANGE_PIN (GPIO_Pin_13)
@@ -18,20 +19,27 @@ void init_gpio() {
   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
 }
 
-void greet() {
+void greet_led() {
   for (int i = 0; i < 10; i++) {
     GPIO_ToggleBits(GPIOD, ORANGE_PIN);
     wait(0.1);
   }
 }
 
+void greet_serial() { serial_puts("Hello!\n"); }
+
+void greet() {
+  greet_serial();
+  greet_led();
+}
+
 int main(void) {
   init_clocks();
   init_gpio();
   init_main_timer();
+  init_serial();
 
   greet();
-
 
   uint16_t buffer[BUFFER_SIZE];
   for (int i = 0; i < BUFFER_SIZE; i++) {
@@ -42,6 +50,7 @@ int main(void) {
 
   while (1) {
     __asm__("nop");
+    // we don't want to do anything here, don't disturb the spam!
   }
 
   return 0;
