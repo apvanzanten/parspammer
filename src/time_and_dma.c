@@ -44,11 +44,6 @@ void init_spam_dma(uint16_t *buffer, uint16_t buffer_size) {
   TIM_DMACmd(TIM1, TIM_DMA_Update, ENABLE);
 }
 
-void init_spam(uint16_t *buffer, uint16_t buffer_size) {
-  init_spam_timer();
-  init_spam_dma(buffer, buffer_size);
-}
-
 void init_main_timer() {
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
   TIM_TimeBaseInitTypeDef initStruct;

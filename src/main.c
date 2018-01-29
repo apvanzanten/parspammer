@@ -33,6 +33,16 @@ void greet() {
   greet_led();
 }
 
+void start_spam(uint16_t *buffer, uint16_t buffer_size) {
+  init_spam_timer();
+  init_spam_dma(buffer, buffer_size);
+
+  while (1) {
+    __asm__("nop");
+    // we don't want to do anything here, don't disturb the spam!
+  }
+}
+
 int main(void) {
   init_clocks();
   init_gpio();
@@ -46,12 +56,7 @@ int main(void) {
     buffer[i] = i;
   }
 
-  init_spam(buffer, BUFFER_SIZE);
-
-  while (1) {
-    __asm__("nop");
-    // we don't want to do anything here, don't disturb the spam!
-  }
+  start_spam(buffer, BUFFER_SIZE);
 
   return 0;
 }
