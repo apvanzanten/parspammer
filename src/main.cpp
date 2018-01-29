@@ -22,33 +22,38 @@
  **/
 
 #include <misc.h>
+#include <stm32f4xx_dma.h>
 #include <stm32f4xx_gpio.h>
 #include <stm32f4xx_rcc.h>
 #include <stm32f4xx_tim.h>
-#include <stm32f4xx_dma.h>
 
-constexpr auto GREEN_PIN = GPIO_Pin_12;
-constexpr auto ORANGE_PIN = GPIO_Pin_13;
+#define GREEN_PIN (GPIO_Pin_12)
+#define ORANGE_PIN (GPIO_Pin_13)
 
+#define DESIRED_PLL_M (4)   // 2-53
+#define DESIRED_PLL_N (360) // 50-432
+#define DESIRED_PLL_P (4)   // 2,4,6,8
+#define DESIRED_PLL_Q (15)  // 2-15
+#define DESIRED_HCLK_DIV (RCC_SYSCLK_Div1)
+#define DESIRED_APB1_PRESCALER (RCC_HCLK_Div8)
+#define DESIRED_APB2_PRESCALER (RCC_HCLK_Div2)
 
-constexpr uint32_t DESIRED_PLL_M = 4; // 2-53
-constexpr uint32_t DESIRED_PLL_N = 360; // 50-432
-constexpr uint32_t DESIRED_PLL_P = 4; // 2,4,6,8
-constexpr uint32_t DESIRED_PLL_Q = 15; // 2-15
-constexpr uint32_t DESIRED_HCLK_DIV = RCC_SYSCLK_Div1; 
-constexpr uint32_t DESIRED_APB1_PRESCALER = RCC_HCLK_Div8;
-constexpr uint32_t DESIRED_APB2_PRESCALER = RCC_HCLK_Div2;
+#define DESIRED_SYSCLK (180000000)
+#define DESIRED_HCLK (180000000)
+#define DESIRED_PCLK1 (22500000)
+#define DESIRED_PCLK2 (90000000)
 
-constexpr uint32_t DESIRED_SYSCLK = 180000000;
-constexpr uint32_t DESIRED_HCLK = 180000000;
-constexpr uint32_t DESIRED_PCLK1 = 22500000;
-constexpr uint32_t DESIRED_PCLK2 = 90000000;
+#define DESIRED_TMR_RATE (DESIRED_PCLK2 * 2)
+#define DESIRED_SAMPLE_RATE (20 * 1000 * 1000)
+#define TMR_PERIOD (DESIRED_TMR_RATE / DESIRED_SAMPLE_RATE)
 
-constexpr uint32_t DESIRED_TMR_RATE = DESIRED_PCLK2 * 2;
-constexpr uint32_t DESIRED_SAMPLE_RATE = 20 * 1000 * 1000;
-constexpr uint32_t TMR_PERIOD = DESIRED_TMR_RATE / DESIRED_SAMPLE_RATE;
+#define RCC_DMA_PERIPH_CLK (RCC_AHB1Periph_DMA2)
+#define DMA_STREAM (DMA2_Stream5)
+#define DMA_CHANNEL (DMA_Channel_6)
 
-bool check_clocks() {
+#define BUFFER_SIZE (4096)
+
+int check_clocks() {
   RCC_ClocksTypeDef clocks;
   RCC_GetClocksFreq(&clocks);
 
@@ -102,7 +107,7 @@ void init_clocks() {
   }
 }
 
-void init_timer_and_dma(uint16_t * buffer, uint16_t buffer_size) {
+void init_timer_and_dma(uint16_t *buffer, uint16_t buffer_size) {
   RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
   TIM_TimeBaseInitTypeDef initStruct;
   initStruct.TIM_Prescaler = 1 - 1; // prescaler 1:1 -> same as PCLK2
@@ -120,9 +125,6 @@ void init_timer_and_dma(uint16_t * buffer, uint16_t buffer_size) {
   TIM_Cmd(TIM1, ENABLE);
 
   // DMA init
-  constexpr auto RCC_DMA_PERIPH_CLK = RCC_AHB1Periph_DMA2;
-  constexpr auto DMA_STREAM = DMA2_Stream5;
-  constexpr auto DMA_CHANNEL = DMA_Channel_6;
 
   DMA_DeInit(DMA_STREAM);
   RCC_AHB1PeriphClockCmd(RCC_DMA_PERIPH_CLK, ENABLE);
@@ -152,7 +154,6 @@ void init_timer_and_dma(uint16_t * buffer, uint16_t buffer_size) {
 
 void init_gpio() {
   GPIO_InitTypeDef initStruct;
-  // initStruct.GPIO_Pin = GREEN_PIN | ORANGE_PIN;
   initStruct.GPIO_Pin = GPIO_Pin_All;
   initStruct.GPIO_Mode = GPIO_Mode_OUT;
   initStruct.GPIO_Speed = GPIO_High_Speed;
@@ -162,20 +163,19 @@ void init_gpio() {
   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
 }
 
-void greet(){
+void greet() {
   for (int i = 0; i < 10; i++) {
     GPIO_ToggleBits(GPIOD, ORANGE_PIN);
     for (int i = 0; i < 5000000; i++) {
-      asm("nop");
+      __asm__("nop");
     }
   }
 }
 
 int main(void) {
 
-  constexpr auto BUFFER_SIZE = 4096;
   uint16_t buffer[BUFFER_SIZE];
-  for(int i = 0; i < BUFFER_SIZE; i++){
+  for (int i = 0; i < BUFFER_SIZE; i++) {
     buffer[i] = i;
   }
 
@@ -187,11 +187,8 @@ int main(void) {
   init_timer_and_dma(buffer, BUFFER_SIZE);
 
   while (1) {
-    asm("nop");
+    __asm__("nop");
   }
 
   return 0;
 }
-
-void *__dso_handle; // NOTE: get rid of this as soon as platformio fixes their
-                    // toolchain
