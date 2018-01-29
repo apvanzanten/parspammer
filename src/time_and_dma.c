@@ -1,24 +1,24 @@
 #include "time_and_dma.h"
 
-void init_spam_timer_and_dma(uint16_t *buffer, uint16_t buffer_size) {
+void init_spam_timer() {
   RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
   TIM_TimeBaseInitTypeDef initStruct;
-  initStruct.TIM_Prescaler = 1 - 1; // prescaler 1:1 -> same as PCLK2
+  initStruct.TIM_Prescaler = SPAM_TMR_PRESCALER - 1; // prescaler 1:1
   initStruct.TIM_CounterMode = TIM_CounterMode_Up;
-  initStruct.TIM_ClockDivision =
-      TIM_CKD_DIV1; // clock division 1:1 -> same as PCLK2
+  initStruct.TIM_ClockDivision = TIM_CKD_DIV1; // clock division 1:1
 
   // - 1: timer counts up to (and incl.) the TIM*->ARR and then resets, thereby
   // the period is actually (TIM*->ARR)+1
-  initStruct.TIM_Period = (uint32_t)(TMR_PERIOD - 1);
+  initStruct.TIM_Period = (uint32_t)(SPAM_TMR_PERIOD - 1);
 
   initStruct.TIM_RepetitionCounter = 0;
 
   TIM_TimeBaseInit(TIM1, &initStruct);
   TIM_Cmd(TIM1, ENABLE);
+}
 
+void init_spam_dma(uint16_t *buffer, uint16_t buffer_size) {
   // DMA init
-
   DMA_DeInit(DMA_STREAM);
   RCC_AHB1PeriphClockCmd(RCC_DMA_PERIPH_CLK, ENABLE);
 
@@ -41,10 +41,53 @@ void init_spam_timer_and_dma(uint16_t *buffer, uint16_t buffer_size) {
   DMA_Init(DMA_STREAM, &dmaInitStruct);
 
   DMA_Cmd(DMA_STREAM, ENABLE);
-
   TIM_DMACmd(TIM1, TIM_DMA_Update, ENABLE);
 }
 
-void init_main_timer() {}
+void init_spam(uint16_t *buffer, uint16_t buffer_size) {
+  init_spam_timer();
+  init_spam_dma(buffer, buffer_size);
+}
 
+void init_main_timer() {
+  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+  TIM_TimeBaseInitTypeDef initStruct;
+  initStruct.TIM_Prescaler = MAIN_TMR_PRESCALER - 1;
+  initStruct.TIM_CounterMode = TIM_CounterMode_Up;
+  initStruct.TIM_ClockDivision = TIM_CKD_DIV1;
+
+  // - 1: timer counts up to (and incl.) the TIM*->ARR and then resets, thereby
+  // the period is actually (TIM*->ARR)+1
+  initStruct.TIM_Period = (uint32_t)(MAIN_TMR_PERIOD - 1);
+
+  TIM_TimeBaseInit(TIM2, &initStruct);
+  TIM_Cmd(TIM2, ENABLE);
+}
+
+uint32_t get_main_tmr_ticks(){
+  return TIM2->CNT;
+}
+
+void wait_ticks(uint32_t time_ticks) {
+  // Overflow protection assumes that time_ticks < 2 * TMR_PERIOD at all times.
+  // So, as long as TMR_PERIOD is more than half of UINT32_MAX it should be
+  // fine.
+  if (time_ticks == 0)
+    return;
+
+  uint32_t start = get_main_tmr_ticks();
+  uint64_t desiredEnd = start + time_ticks;
+  if (desiredEnd >= MAIN_TMR_PERIOD) { // we have overflow
+    desiredEnd -= MAIN_TMR_PERIOD;
+    while (get_main_tmr_ticks() > desiredEnd)
+      ; // wait for our timer to overflow as well
+  }
+
+  while (get_main_tmr_ticks() < desiredEnd)
+    ;
+}
+
+void wait(float time_sec){
+  wait_ticks(time_sec * MAIN_TMR_RATE);
+}
 

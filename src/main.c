@@ -21,25 +21,24 @@ void init_gpio() {
 void greet() {
   for (int i = 0; i < 10; i++) {
     GPIO_ToggleBits(GPIOD, ORANGE_PIN);
-    for (int i = 0; i < 5000000; i++) {
-      __asm__("nop");
-    }
+    wait(0.1);
   }
 }
 
 int main(void) {
+  init_clocks();
+  init_gpio();
+  init_main_timer();
+
+  greet();
+
 
   uint16_t buffer[BUFFER_SIZE];
   for (int i = 0; i < BUFFER_SIZE; i++) {
     buffer[i] = i;
   }
 
-  init_clocks();
-  init_gpio();
-
-  greet();
-
-  init_spam_timer_and_dma(buffer, BUFFER_SIZE);
+  init_spam(buffer, BUFFER_SIZE);
 
   while (1) {
     __asm__("nop");
