@@ -17,7 +17,7 @@ void init_spam_timer() {
   TIM_Cmd(TIM1, ENABLE);
 }
 
-void init_spam_dma(uint16_t *buffer, uint16_t buffer_size) {
+void init_spam_dma(uint16_t *buffer, uint16_t buffer_size, int is_continuous) {
   // DMA init
   DMA_DeInit(DMA_STREAM);
   RCC_AHB1PeriphClockCmd(RCC_DMA_PERIPH_CLK, ENABLE);
@@ -32,7 +32,7 @@ void init_spam_dma(uint16_t *buffer, uint16_t buffer_size) {
   dmaInitStruct.DMA_MemoryInc = DMA_MemoryInc_Enable;
   dmaInitStruct.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
   dmaInitStruct.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
-  dmaInitStruct.DMA_Mode = DMA_Mode_Circular;
+  dmaInitStruct.DMA_Mode = is_continuous ? DMA_Mode_Circular : DMA_Mode_Normal;
   dmaInitStruct.DMA_Priority = DMA_Priority_High;
   dmaInitStruct.DMA_FIFOMode = DMA_FIFOMode_Disable;
   dmaInitStruct.DMA_FIFOThreshold = DMA_FIFOThreshold_HalfFull;

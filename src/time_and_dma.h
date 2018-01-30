@@ -25,9 +25,8 @@
 #define DMA_CHANNEL (DMA_Channel_6)
 
 void init_spam_timer();
-void init_spam_dma(uint16_t * buffer, uint16_t buffer_size);
+void init_spam_dma(uint16_t * buffer, uint16_t buffer_size, int is_continuous);
 void init_main_timer();
-void wait_us(uint32_t time_us);
 void wait(float time_sec);
 
 #endif // TIME_H

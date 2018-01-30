@@ -43,14 +43,28 @@ void greet() {
   greet_led();
 }
 
-void start_spam(uint16_t *buffer, uint16_t buffer_size) {
+void start_spam(uint16_t *buffer, uint16_t buffer_size, char mode) {
   init_spam_timer();
-  init_spam_dma(buffer, buffer_size);
+
+  switch(mode){
+    case MODE_CONT:
+      init_spam_dma(buffer, buffer_size, 1);
+      break;
+    default:
+      init_spam_dma(buffer, buffer_size, 0);
+      break;
+  }
 
   while (1) {
     __asm__("nop");
     // we don't want to do anything here, don't disturb the spam!
   }
+}
+
+void receive_samples(uint16_t * buffer, uint16_t num_samples){
+    for (uint16_t i = 0; i < num_samples; i++) {
+      buffer[i] = (serial_get_blocking() << 8) | serial_get_blocking();
+    }
 }
 
 int main(void) {
@@ -66,13 +80,14 @@ int main(void) {
   serial_puts("1. mode (one byte), pick from:\n");
   serial_puts("\t0x00: continuous send\n");
   serial_puts("\t0x01: one-shot send\n");
-  serial_puts("\t0x02: repeated one-shot send @ 1Hz");
-  serial_puts("\t0x03: repeated one-shot send @ 10Hz");
-  serial_puts("\t0x04: repeated one-shot send @ 100Hz");
+  serial_puts("\t0x02: repeated one-shot send @ 1Hz\n");
+  serial_puts("\t0x03: repeated one-shot send @ 10Hz\n");
+  serial_puts("\t0x04: repeated one-shot send @ 100Hz\n");
   serial_puts(
       "\t0x64 ('d'): defaults (ignores given sample number and data)\n");
   serial_puts("2. number of samples (unsigned integer, 2 bytes, max 8192)\n");
   serial_puts("3. the actual samples of data (2 bytes each)\n");
+  serial_puts("RDY\n");
 
   char mode = serial_get_blocking();
 
@@ -96,19 +111,26 @@ int main(void) {
 
   switch (mode) {
   case MODE_CONT:
-    for (uint16_t i = 0; i < num_samples; i++) {
-      buffer[i] = (serial_get_blocking() << 8) | serial_get_blocking();
-    }
+    receive_samples(buffer, num_samples);
+    serial_puts("Thanks! Initiating continuous spam!");
     break;
   case MODE_ONESHOT:
+    receive_samples(buffer, num_samples);
+    serial_puts("Thanks! Initiating one-shot spam!");
+    break;
   case MODE_ONESHOT_REPEAT_1HZ:
+    receive_samples(buffer, num_samples);
+    serial_puts("Thanks! Initiating repeated one-shot (1Hz) spam!");
+    break;
   case MODE_ONESHOT_REPEAT_10HZ:
   case MODE_ONESHOT_REPEAT_100HZ:
     serial_puts("Mode not yet implemented, moving to default mode:");
   case MODE_DEFAULT:
+    mode = MODE_CONT;
     for (uint16_t i = 0; i < num_samples; i++) {
       buffer[i] = i;
     }
+    serial_puts("Thanks! Initiating default spam!");
     break;
   default:
     serial_puts("ERROR: unknown mode. You'll have to reboot me now.");
@@ -116,9 +138,7 @@ int main(void) {
       ;
   }
 
-  serial_puts("Thanks! Initiating spam!");
-
-  start_spam(buffer, num_samples);
+  start_spam(buffer, num_samples, mode);
 
   return 0;
 }
