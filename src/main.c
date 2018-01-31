@@ -9,6 +9,8 @@
 #define NUM_SAMPLES_DEFAULT (4096)
 #define NUM_SAMPLES_MAX (8192)
 
+uint16_t num_samples = NUM_SAMPLES_DEFAULT;
+
 enum Modes {
   MODE_CONT,
   MODE_ONESHOT,
@@ -46,13 +48,31 @@ void greet() {
 void start_spam(uint16_t *buffer, uint16_t buffer_size, char mode) {
   init_spam_timer();
 
-  switch(mode){
-    case MODE_CONT:
-      init_spam_dma(buffer, buffer_size, 1);
-      break;
-    default:
-      init_spam_dma(buffer, buffer_size, 0);
-      break;
+  switch (mode) {
+  case MODE_CONT:
+    init_spam_dma(buffer, buffer_size, 1);
+    DMA_Cmd(DMA_STREAM, ENABLE);
+    break;
+  case MODE_ONESHOT:
+    init_spam_dma(buffer, buffer_size, 0);
+    DMA_Cmd(DMA_STREAM, ENABLE);
+    break;
+  case MODE_ONESHOT_REPEAT_1HZ:
+    init_spam_dma(buffer, buffer_size, 0);
+    init_spam_repeat_timer(REPEAT_TMR_RATE);
+    break;
+  case MODE_ONESHOT_REPEAT_10HZ:
+    init_spam_dma(buffer, buffer_size, 0);
+    init_spam_repeat_timer(REPEAT_TMR_RATE / 10);
+    break;
+  case MODE_ONESHOT_REPEAT_100HZ:
+    init_spam_dma(buffer, buffer_size, 0);
+    init_spam_repeat_timer(REPEAT_TMR_RATE / 100);
+    break;
+  default:
+    init_spam_dma(buffer, buffer_size, 0);
+    DMA_Cmd(DMA_STREAM, ENABLE);
+    break;
   }
 
   while (1) {
@@ -61,10 +81,19 @@ void start_spam(uint16_t *buffer, uint16_t buffer_size, char mode) {
   }
 }
 
-void receive_samples(uint16_t * buffer, uint16_t num_samples){
-    for (uint16_t i = 0; i < num_samples; i++) {
-      buffer[i] = (serial_get_blocking() << 8) | serial_get_blocking();
-    }
+void receive_samples(uint16_t *buffer, uint16_t num_samples) {
+  for (uint16_t i = 0; i < num_samples; i++) {
+    buffer[i] = (serial_get_blocking() << 8) | serial_get_blocking();
+  }
+}
+
+void TIM5_IRQHandler() {
+  if (TIM_GetITStatus(REPEAT_TMR, TIM_IT_Update) != RESET) {
+    TIM_ClearITPendingBit(REPEAT_TMR, TIM_IT_Update);
+    DMA_SetCurrDataCounter(DMA_STREAM, num_samples);
+    DMA_ClearFlag(DMA_STREAM, DMA_FLAGS);
+    DMA_Cmd(DMA_STREAM, ENABLE);
+  }
 }
 
 int main(void) {
@@ -91,20 +120,17 @@ int main(void) {
 
   char mode = serial_get_blocking();
 
-  uint16_t num_samples = 0;
-
-  if (mode == MODE_DEFAULT) {
-    num_samples = NUM_SAMPLES_DEFAULT;
-  } else {
+  if (mode != MODE_DEFAULT) {
     char num_samples_upper = serial_get_blocking();
     char num_samples_lower = serial_get_blocking();
     num_samples = (num_samples_upper << 8) | num_samples_lower;
-  }
 
-  if (num_samples > NUM_SAMPLES_MAX) {
-    serial_puts("ERROR: sample number too high. You'll have to reboot me now.");
-    while (1)
-      ;
+    if (num_samples > NUM_SAMPLES_MAX) {
+      serial_puts(
+          "ERROR: sample number too high. You'll have to reboot me now.");
+      while (1)
+        ;
+    }
   }
 
   uint16_t buffer[num_samples];
@@ -123,8 +149,13 @@ int main(void) {
     serial_puts("Thanks! Initiating repeated one-shot (1Hz) spam!");
     break;
   case MODE_ONESHOT_REPEAT_10HZ:
+    receive_samples(buffer, num_samples);
+    serial_puts("Thanks! Initiating repeated one-shot (10Hz) spam!");
+    break;
   case MODE_ONESHOT_REPEAT_100HZ:
-    serial_puts("Mode not yet implemented, moving to default mode:");
+    receive_samples(buffer, num_samples);
+    serial_puts("Thanks! Initiating repeated one-shot (100Hz) spam!");
+    break;
   case MODE_DEFAULT:
     mode = MODE_CONT;
     for (uint16_t i = 0; i < num_samples; i++) {

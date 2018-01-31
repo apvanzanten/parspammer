@@ -1,7 +1,22 @@
 #include "time_and_dma.h"
 
+void init_main_timer() {
+  RCC_APB1PeriphClockCmd(MAIN_TMR_RCC, ENABLE);
+  TIM_TimeBaseInitTypeDef initStruct;
+  initStruct.TIM_Prescaler = MAIN_TMR_PRESCALER - 1;
+  initStruct.TIM_CounterMode = TIM_CounterMode_Up;
+  initStruct.TIM_ClockDivision = TIM_CKD_DIV1;
+
+  // - 1: timer counts up to (and incl.) the TIM*->ARR and then resets, thereby
+  // the period is actually (TIM*->ARR)+1
+  initStruct.TIM_Period = (uint32_t)(MAIN_TMR_PERIOD - 1);
+
+  TIM_TimeBaseInit(MAIN_TMR, &initStruct);
+  TIM_Cmd(MAIN_TMR, ENABLE);
+}
+
 void init_spam_timer() {
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
+  RCC_APB2PeriphClockCmd(SPAM_TMR_RCC, ENABLE);
   TIM_TimeBaseInitTypeDef initStruct;
   initStruct.TIM_Prescaler = SPAM_TMR_PRESCALER - 1; // prescaler 1:1
   initStruct.TIM_CounterMode = TIM_CounterMode_Up;
@@ -13,8 +28,31 @@ void init_spam_timer() {
 
   initStruct.TIM_RepetitionCounter = 0;
 
-  TIM_TimeBaseInit(TIM1, &initStruct);
-  TIM_Cmd(TIM1, ENABLE);
+  TIM_TimeBaseInit(SPAM_TMR, &initStruct);
+  TIM_Cmd(SPAM_TMR, ENABLE);
+}
+
+void init_spam_repeat_timer(uint32_t period) {
+  NVIC_InitTypeDef nvicStructure;
+  nvicStructure.NVIC_IRQChannel = REPEAT_TMR_IRQ;
+  nvicStructure.NVIC_IRQChannelPreemptionPriority = 0;
+  nvicStructure.NVIC_IRQChannelSubPriority = 1;
+  nvicStructure.NVIC_IRQChannelCmd = ENABLE;
+  NVIC_Init(&nvicStructure);
+
+  RCC_APB1PeriphClockCmd(REPEAT_TMR_RCC, ENABLE);
+  TIM_TimeBaseInitTypeDef initStruct;
+  initStruct.TIM_Prescaler = REPEAT_TMR_PRESCALER - 1;
+  initStruct.TIM_CounterMode = TIM_CounterMode_Up;
+  initStruct.TIM_ClockDivision = TIM_CKD_DIV1;
+
+  // - 1: timer counts up to (and incl.) the TIM*->ARR and then resets, thereby
+  // the period is actually (TIM*->ARR)+1
+  initStruct.TIM_Period = (uint32_t)(period - 1);
+
+  TIM_TimeBaseInit(REPEAT_TMR, &initStruct);
+  TIM_ITConfig(REPEAT_TMR, TIM_IT_Update, ENABLE); 
+  TIM_Cmd(REPEAT_TMR, ENABLE);
 }
 
 void init_spam_dma(uint16_t *buffer, uint16_t buffer_size, int is_continuous) {
@@ -40,26 +78,10 @@ void init_spam_dma(uint16_t *buffer, uint16_t buffer_size, int is_continuous) {
   dmaInitStruct.DMA_PeripheralBurst = DMA_MemoryBurst_Single;
   DMA_Init(DMA_STREAM, &dmaInitStruct);
 
-  DMA_Cmd(DMA_STREAM, ENABLE);
-  TIM_DMACmd(TIM1, TIM_DMA_Update, ENABLE);
+  TIM_DMACmd(SPAM_TMR, TIM_DMA_Update, ENABLE);
 }
 
-void init_main_timer() {
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
-  TIM_TimeBaseInitTypeDef initStruct;
-  initStruct.TIM_Prescaler = MAIN_TMR_PRESCALER - 1;
-  initStruct.TIM_CounterMode = TIM_CounterMode_Up;
-  initStruct.TIM_ClockDivision = TIM_CKD_DIV1;
-
-  // - 1: timer counts up to (and incl.) the TIM*->ARR and then resets, thereby
-  // the period is actually (TIM*->ARR)+1
-  initStruct.TIM_Period = (uint32_t)(MAIN_TMR_PERIOD - 1);
-
-  TIM_TimeBaseInit(TIM2, &initStruct);
-  TIM_Cmd(TIM2, ENABLE);
-}
-
-uint32_t get_main_tmr_ticks() { return TIM2->CNT; }
+uint32_t get_main_tmr_ticks() { return MAIN_TMR->CNT; }
 
 void wait_ticks(uint32_t time_ticks) {
   // Overflow protection assumes that time_ticks < 2 * TMR_PERIOD at all times.
