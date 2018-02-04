@@ -8,8 +8,24 @@
 
 #include "clocks.h"
 
+/** Defines and functions for initializing and interacting with the timers and
+ * DMA (only in so far required for parspammer).
+ *
+ * SPAM_TMR is responsible for clocking the DMA responsible for transfer of
+ * samples to the GPIO pins, i.e. the DMA transfers a sample to the GPIO output
+ * every time the SPAM_TMR reaches 0. This means it has to run quite fast (>=
+ * 160MHz) and with a small period (i.e. the amount of ticks between reaching
+ * 0.)
+ *
+ * MAIN_TMR is used for general purpose timing (delays mostly), it run
+ * relatively slow (~1MHz) and its period spans the full 32 bits of its counter
+ * (leading to a period of upwards of 30 minutes).
+ *
+ * REPEAT_TMR is used for repeated one-shot spamming. It triggers an interrupt
+ * handler which resets the DMA.
+ */
+
 #define SPAM_SAMPLE_RATE (20 * 1000 * 1000)
-// #define SPAM_SAMPLE_RATE (1 * 1000 * 1000)
 
 #define SPAM_TMR (TIM1)
 #define SPAM_TMR_RCC (RCC_APB2Periph_TIM1)
@@ -41,7 +57,8 @@
 void init_main_timer();
 void init_spam_timer();
 void init_spam_repeat_timer();
-void init_spam_dma(uint16_t * buffer, uint16_t buffer_size, int is_continuous);
+void init_spam_dma(uint16_t * buffer, int is_continuous);
+void start_spam_dma(uint16_t num_samples);
 void wait(float time_sec);
 
 #endif // TIME_H

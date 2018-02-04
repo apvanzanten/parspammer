@@ -1,5 +1,8 @@
 #include "clocks.h"
 
+/* Function that asks the SPL for the current system clocks, and compares them
+ * to the clocks defined in DESIRED_xCLKy.
+ */
 int check_clocks() {
   RCC_ClocksTypeDef clocks;
   RCC_GetClocksFreq(&clocks);
@@ -7,11 +10,12 @@ int check_clocks() {
   return ((clocks.SYSCLK_Frequency == DESIRED_SYSCLK) &&
           (clocks.HCLK_Frequency == DESIRED_HCLK) &&
           (clocks.PCLK1_Frequency == DESIRED_PCLK1) &&
-          (clocks.PCLK2_Frequency == DESIRED_PCLK2)); // all clocks are equal to
-                                                      // the desired clocks if
-                                                      // this is true.
+          (clocks.PCLK2_Frequency == DESIRED_PCLK2)); 
 }
 
+/* Initialize the clocks according the the configuration defined in DESIRED_x macros.
+ * Will halt (nop loop) if the configuration fails.
+*/
 void init_clocks() {
   // enable HSI and set it as the system clock source
   RCC_HSICmd(ENABLE);
