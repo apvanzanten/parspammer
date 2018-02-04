@@ -1,8 +1,8 @@
 #ifndef SPAM_H
 #define SPAM_H
 
-#define NUM_SAMPLES_DEFAULT (4096)
-#define NUM_SAMPLES_MAX (8192)
+#define NUM_SAMPLES_DEFAULT (256)
+#define NUM_SAMPLES_MAX (16384)
 
 #include "serial.h"
 #include "time_and_dma.h"
