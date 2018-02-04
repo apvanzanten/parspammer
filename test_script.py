@@ -7,14 +7,14 @@ def write_byte(ser, byte):
 def write_halfword(ser, halfword):
   return ser.write(bytes([((halfword >> 8) & 0xff), (halfword & 0xff)]))
 
-def get_data():
-  mode = 4
-  num_samples = 8096
+def generate_data():
+  mode = 5
+  num_samples = 16384
   data = [i for i in range (num_samples-1, -1, -1)]
   return (mode, num_samples, data)
 
 def send_data(ser):
-  mode, num_samples, data = get_data()
+  mode, num_samples, data = generate_data()
 
   print("=== TRANSACTION INITIATED ===")
   print("=== SENDING MODE:", mode)
