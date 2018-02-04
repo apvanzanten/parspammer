@@ -8,8 +8,8 @@ def write_halfword(ser, halfword):
   return ser.write(bytes([((halfword >> 8) & 0xff), (halfword & 0xff)]))
 
 def get_data():
-  mode = 0
-  num_samples = 256
+  mode = 4
+  num_samples = 8096
   data = [i for i in range (num_samples-1, -1, -1)]
   return (mode, num_samples, data)
 
@@ -32,7 +32,7 @@ def send_data(ser):
   print("=== DATA SENT ===")
 
 def main():
-  with serial.Serial('/dev/ttyUSB0') as ser:
+  with serial.Serial('/dev/ttyUSB0', 115200) as ser:
     print(ser.name)         # check which port was really used
     print("=== OPEN ===")
 
