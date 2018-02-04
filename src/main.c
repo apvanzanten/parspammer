@@ -35,6 +35,7 @@ void init_and_start_spam(){
   serial_puts("\t0x02: repeated one-shot send @ 1Hz\n");
   serial_puts("\t0x03: repeated one-shot send @ 10Hz\n");
   serial_puts("\t0x04: repeated one-shot send @ 100Hz\n");
+  serial_puts("\t0x05: repeated one-shot sned @ 1000Hz\n");
   serial_puts(
       "\t0x64 ('d'): defaults (ignores given sample number and data)\n");
   serial_puts("2. number of samples (unsigned integer, 2 bytes, max 8192)\n");

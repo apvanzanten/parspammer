@@ -63,6 +63,11 @@ void start_spam(char mode, uint16_t num_samples) {
     serial_puts("Thanks! Initiating repeated one-shot (100Hz) spam!");
     init_spam_repeat_timer(REPEAT_TMR_RATE / 100);
     break;
+  case MODE_ONE_SHOT_REPEAT_1000HZ:
+    receive_samples(buffer, num_samples);
+    serial_puts("Thanks! Initiating repeated one-shot (1000Hz) spam!");
+    init_spam_repeat_timer(REPEAT_TMR_RATE / 1000);
+    break;
   case MODE_DEFAULT:
     generate_default_samples(buffer, num_samples);
     serial_puts("Thanks! Initiating default spam!");
