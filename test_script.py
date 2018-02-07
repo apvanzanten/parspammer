@@ -1,17 +1,29 @@
 import serial
 import sys
 
+# This is a hacked together script to test Parspammer.
+# NOTE: DOES NOT WORK WITH PYTHON 2, USE PYTHON 3 (or port, if you must)
+# Change generate_data() (or anything else) to suit your needs.
+
+def generate_data():
+  MODE_CONT = 0
+  MODE_ONESHOT = 1
+  MODE_ONESHOT_REPEAT_1HZ = 2
+  MODE_ONESHOT_REPEAT_10HZ = 3
+  MODE_ONESHOT_REPEAT_100HZ = 4
+  MODE_ONESHOT_REPEAT_1000HZ = 5
+  MODE_DEFAULT = 0x64
+ 
+  mode = MODE_ONESHOT_REPEAT_1000HZ
+  num_samples = 16384
+  data = [i for i in range (num_samples-1, -1, -1)]
+  return (mode, num_samples, data)
+
 def write_byte(ser, byte):
   return ser.write(bytes([byte & 0xff]))
 
 def write_halfword(ser, halfword):
   return ser.write(bytes([((halfword >> 8) & 0xff), (halfword & 0xff)]))
-
-def generate_data():
-  mode = 5
-  num_samples = 16384
-  data = [i for i in range (num_samples-1, -1, -1)]
-  return (mode, num_samples, data)
 
 def send_data(ser):
   mode, num_samples, data = generate_data()
