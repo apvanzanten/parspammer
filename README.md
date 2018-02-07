@@ -37,9 +37,8 @@ My particular STM32F407VG chip seems to run absolutely fine at these clock rates
 1. Hook USART2 pins up to whatever device you use as a serial terminal
 2. Set the baud rate to 115200 (if a different baud rate is required, this is easily changable in serial.h via the SERIAL_BAUD_RATE define).
 3. Boot up the STM32F4. If you have a STM32F4 Discovery board (or just happen to have a LED attached to pin D13 for some other reason), you should see a LED blink a few times, after which you should see the following message on your terminal:
-
-    Hello!
-    Welcome to parspammer, please enter the following, as raw data (little endian) with no delimiters:
+```
+    Hello! Welcome to parspammer, please enter the following, as raw data (little endian) with no delimiters:
     1. mode (one byte), pick from:
         0x00: continuous send
         0x01: one-shot send
@@ -51,7 +50,7 @@ My particular STM32F407VG chip seems to run absolutely fine at these clock rates
     2. number of samples (unsigned integer, 2 bytes, max 8192)
     3. the actual samples of data (2 bytes each)
     RDY
-
+```
 After the RDY signal (that's what it's there for) you can start sending your mode, samples and data. It will start spamming the moment all data has been received.
 
 ### Configuring for other sample rates
