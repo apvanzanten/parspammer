@@ -5,7 +5,7 @@ This is a little STM32F4 project that spams arbitrary data (can be passed in via
 Long story short, I am working on a project where we have an ADC sampling at 20MHz, and I want a controllable (read capable of producing specific given data) stand-in for this ADC for testing purposes. There's probably a whole heap of devices capable of doing this better than an STM32F4 can, but I happened to have this STM32F4 Discovery board lying around, and it seemed fun to see if it could do it.
 
 ### Hardware
-STM32F4 Discovery board. For the purposes of this project that equates to: an STM32F407VG chip with an external crystal at 8MHz hooked up to the HSE clock input.
+STM32F4 Discovery board. For the purposes of this project that equates to: an STM32F407VG chip with an external crystal at 8MHz hooked up to the HSE clock input. This project will probably run reasonably well on other STM32F4 chips and boards, though probably some changes to the clock configuration will have to be made.
 
 ### Libraries used
 STM32F4 Standard Peripheral Library. Old stuff, I know. I should be using the Cube HAL. However, the last time I did something with this chip, the situation was different, and I wanted to be able to reuse some old code.
@@ -14,12 +14,15 @@ STM32F4 Standard Peripheral Library. Old stuff, I know. I should be using the Cu
 To build the code, I use platformio. As far as I can tell, this project should build just fine out-of-the-box on with any up-to-date install of platformio, on any platform (it'll even download the toolchain and libraries for you, platformio is nice like that!).
 
 To build:
+
     platformio run
 
 To build and upload:
+
     platformio run --target upload
 
 To clean:
+
     platformio run --target clean
 
 ### Overclock
@@ -32,8 +35,9 @@ My particular STM32F407VG chip seems to run absolutely fine at these clock rates
 
 ### Usage
 1. Hook USART2 pins up to whatever device you use as a serial terminal
-2. Set the baud rate to 115200
+2. Set the baud rate to 115200 (if a different baud rate is required, this is easily changable in serial.h via the SERIAL_BAUD_RATE define).
 3. Boot up the STM32F4. If you have a STM32F4 Discovery board (or just happen to have a LED attached to pin D13 for some other reason), you should see a LED blink a few times, after which you should see the following message on your terminal:
+
     Hello!
     Welcome to parspammer, please enter the following, as raw data (little endian) with no delimiters:
     1. mode (one byte), pick from:
@@ -47,6 +51,7 @@ My particular STM32F407VG chip seems to run absolutely fine at these clock rates
     2. number of samples (unsigned integer, 2 bytes, max 8192)
     3. the actual samples of data (2 bytes each)
     RDY
+
 After the RDY signal (that's what it's there for) you can start sending your mode, samples and data. It will start spamming the moment all data has been received.
 
 ### Configuring for other sample rates
@@ -56,4 +61,4 @@ If your desired rate is an integer divisor of 180MHz and no higher than 20MHz (a
 See the LICENSE file.
 
 ### Contact
-E-mail me at (mailto:ap.vanzanten@gmail.com)[ap.vanzanten@gmail.com].
+E-mail me at [ap.vanzanten@gmail.com](mailto:ap.vanzanten@gmail.com).
